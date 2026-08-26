@@ -7,9 +7,9 @@ import time
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import BatteryState
-from std_msgs.msg import Int32
+from std_msgs.msg import Float32
 
-# Valid battery_source values: battery_level (Int32 %) or power_status (BatteryState)
+# Valid battery_source values: battery_level (Float32 %) or power_status (BatteryState)
 SOURCE_BATTERY_LEVEL = 'battery_level'
 SOURCE_POWER_STATUS = 'power_status'
 
@@ -56,7 +56,7 @@ class BatteryMonitorNode(Node):
         
         # 4. Create both subscriptions; only the active source updates the level
         self.battery_level_sub = self.create_subscription(
-            Int32,
+            Float32,
             self.battery_level_topic,
             self.battery_level_callback,
             10
@@ -110,10 +110,14 @@ class BatteryMonitorNode(Node):
             self.battery_level_crossed_boundary = True
             self.get_logger().info(f"Battery level crossed boundary: {self.current_battery_level} (vs last stored {self.last_battery_level_stored})")
         
+        # FOR  DEBUG FORCE IT 
+        self.battery_level_crossed_boundary = True
+        ####
+        
         self.last_battery_level_stored = self.current_battery_level
 
     def battery_level_callback(self, msg):
-        """Updates level from std_msgs/Int32 on /power/battery_level (already 0..100)."""
+        """Updates level from std_msgs/Float32 on /power/battery_level (already 0..100)."""
         if self.battery_source != SOURCE_BATTERY_LEVEL:
             return
         self._set_battery_level(msg.data)
