@@ -1,6 +1,8 @@
 import math
 import os
 import subprocess
+import time
+# import math
 
 import rclpy
 from rclpy.node import Node
@@ -49,6 +51,9 @@ class BatteryMonitorNode(Node):
         self.current_battery_level = None
         self.last_announced_level = None
         
+        self.last_battery_level_stored = None
+        self.battery_level_crossed_boundary = False
+        
         # 4. Create both subscriptions; only the active source updates the level
         self.battery_level_sub = self.create_subscription(
             Int32,
@@ -96,6 +101,16 @@ class BatteryMonitorNode(Node):
     def _set_battery_level(self, level):
         """Clamp and store an integer battery percentage 0..100."""
         self.current_battery_level = max(0, min(100, int(level)))
+        
+        if self.last_battery_level_stored is None: 
+            self.last_battery_level_stored = self.current_battery_level
+            self.get_logger().info(f"Battery level stored: {self.current_battery_level}")
+            
+        if math.floor(self.current_battery_level / 10) != math.floor(self.last_battery_level_stored / 10):
+            self.battery_level_crossed_boundary = True
+            self.get_logger().info(f"Battery level crossed boundary: {self.current_battery_level} (vs last stored {self.last_battery_level_stored})")
+        
+        self.last_battery_level_stored = self.current_battery_level
 
     def battery_level_callback(self, msg):
         """Updates level from std_msgs/Int32 on /power/battery_level (already 0..100)."""
@@ -122,7 +137,7 @@ class BatteryMonitorNode(Node):
         level = self.current_battery_level
 
         # Trigger if level is a multiple of 10, or if it is exactly 99
-        is_trigger_level = (level % 10 == 0) or (level == 99)
+        is_trigger_level = (level == 99) or self.battery_level_crossed_boundary
         
         if is_trigger_level and level != self.last_announced_level:
             self.last_announced_level = level
@@ -134,11 +149,11 @@ class BatteryMonitorNode(Node):
             elif level <= 50:
                 sound_file = self.sound_low
                 spoken_text = f"{self.sentence_low}. {self.sentence_level} {level}"
+                spoken_text += " percent"
             else:
                 sound_file = self.sound_medium
-                spoken_text = f"{self.sentence_level} {level}"
-                
-            spoken_text += " percent"
+                spoken_text = f"{self.sentence_level} {level}"                
+                spoken_text += " percent"
                 
             self.get_logger().info(f"Battery at {level}%. Triggering alerts.")
                     
@@ -147,6 +162,7 @@ class BatteryMonitorNode(Node):
                 self.play_sound(sound_file)
                 
             if self.can_speak:
+                time.sleep(1)
                 self.speak(spoken_text)
 
     def play_sound(self, filepath):
