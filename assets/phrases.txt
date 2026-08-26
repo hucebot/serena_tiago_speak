@@ -1,0 +1,11 @@
+# phrases.txt
+open_fridge, Let me open this fridge.
+pick_milk, The milk bottle.
+place_milk, The milk goes in the fridge.
+pick_banana, The banana.
+place_banana, The banana should go in the fruit plate.
+pick_baguette, The French bread does not go in the fridge, I will put it in the bread basket.
+place_baguette, There.
+pick_apple, The apple. 
+place_apple, The apple goes in the bowl.
+close_fridge, Now I can close the fridge.
