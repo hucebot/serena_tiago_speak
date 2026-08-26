@@ -72,6 +72,45 @@ List installed voices inside the container: `festival -b '(print (voice.list))'`
 
 Phrases live in `assets/phrases.txt` (`action_name, spoken phrase`).
 
+## Launch the battery monitoring node
+
+Inside the container, from the repository root (so sound paths in `config.ini` resolve):
+
+```bash
+python3 battery_monitor.py
+```
+
+The node loads `config.ini` next to the script. It announces battery level changes (10% boundaries and 99%) with optional WAV playback and Festival TTS.
+
+### Battery sources
+
+Both topics are subscribed; only the active source updates the level. Switch with `battery_source` in `config.ini`:
+
+| `battery_source` | Topic (default)           | Message type              |
+|------------------|---------------------------|---------------------------|
+| `battery_level`  | `/power/battery_level`    | `std_msgs/msg/Int32` (0–100 %) |
+| `power_status`   | `/power_status`           | `sensor_msgs/msg/BatteryState` (`percentage`) |
+
+### Config (`config.ini`)
+
+| Key                     | Default                     | Description                                      |
+|-------------------------|-----------------------------|--------------------------------------------------|
+| `battery_source`        | `battery_level`             | Active source: `battery_level` or `power_status` |
+| `battery_level_topic`   | `/power/battery_level`      | Int32 percentage topic                           |
+| `power_status_topic`    | `/power_status`             | BatteryState topic                               |
+| `read_frequency`        | `0.2`                       | How often to evaluate level (Hz)                 |
+| `can_speak`             | `True`                      | Enable Festival TTS                              |
+| `can_play_sound`        | `True`                      | Enable WAV alerts via `aplay`                    |
+| `sentence_level`        | …                           | Spoken prefix for mid/low levels                 |
+| `sentence_full`         | …                           | Spoken when nearly full (≥ 99%)                  |
+| `sentence_low`          | …                           | Spoken when low (≤ 50%)                          |
+| `voice_type`            | `kal_diphone`               | Festival voice (same as Tiago speaks)            |
+| `sound_full`            | `assets/full_charge.wav`    | WAV for full charge                              |
+| `sound_medium`          | `assets/battery_level.wav`  | WAV for mid levels                               |
+| `sound_low`             | `assets/urgent_charge2.wav` | WAV for low battery                              |
+
+Example: set `battery_source=power_status` to use `/power_status` instead of the Int32 topic.
+
 ## Test with a fake action
 
 In another terminal (host or `docker exec` into `tiago_speaks`):
