@@ -1,0 +1,145 @@
+import math
+import os
+import subprocess
+
+import rclpy
+from rclpy.node import Node
+from sensor_msgs.msg import BatteryState
+
+class BatteryMonitorNode(Node):
+    def __init__(self, config_path='config.ini'):
+        super().__init__('battery_monitor_node')
+
+        # Get the directory where this python file is located
+        self.script_dir = os.path.dirname(os.path.abspath(__file__))
+
+        # 1. Parse the configuration file
+        config_file_path = os.path.join(self.script_dir, config_path)
+        self.config = self.load_config(config_file_path)
+        
+        # 2. Extract parameters
+        self.topic = self.config.get('battery_topic', '/power_state')
+        self.frequency = float(self.config.get('read_frequency', '0.2'))
+        self.can_speak = self.config.get('can_speak', 'true').lower() == 'true'
+        self.can_play_sound = self.config.get('can_play_sound', 'true').lower() == 'true'
+        
+        self.sentence_level = self.config.get('sentence_level', 'Tiago battery is at')
+        self.sentence_full = self.config.get('sentence_full', 'Tiago battery fully charged')
+        self.sentence_low = self.config.get('sentence_low', 'Tiago battery is low')
+        self.voice_type = self.config.get('voice_type', 'kal_diphone')
+        
+        self.sound_full = self.config.get('sound_full', 'full_charge.wav')
+        self.sound_medium = self.config.get('sound_medium', 'battery_level.wav')
+        self.sound_low = self.config.get('sound_low', 'urgent_charge2.wav')
+        
+        # 3. Initialize state variables
+        self.current_battery_level = None
+        self.last_announced_level = None
+        
+        # 4. Create Subscription
+        self.subscription = self.create_subscription(
+            BatteryState,
+            self.topic,
+            self.battery_callback,
+            10
+        )
+        
+        # 5. Create Timer to process readings at the specified frequency
+        timer_period = 1.0 / self.frequency if self.frequency > 0 else 5.0
+        self.timer = self.create_timer(timer_period, self.process_battery_level)
+        self.get_logger().info(f"Battery Monitor started. Listening to {self.topic} at {self.frequency} Hz")
+
+    def load_config(self, filepath):
+        """Reads key-value pairs from the configuration file."""
+        config_dict = {}
+        if not os.path.exists(filepath):
+            self.get_logger().error(f"Config file {filepath} not found!")
+            return config_dict
+            
+        with open(filepath, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                if '=' in line:
+                    key, value = line.split('=', 1)
+                    config_dict[key.strip()] = value.strip()
+        return config_dict
+
+    def battery_callback(self, msg):
+        """Updates the latest battery reading from sensor_msgs/BatteryState.percentage (0..1)."""
+        pct = msg.percentage
+        if math.isnan(pct):
+            return
+        # Spec is 0..1; some publishers send 0..100 — accept both
+        level = pct * 100.0 if pct <= 1.0 else pct
+        self.current_battery_level = max(0, min(100, int(round(level))))
+
+    def process_battery_level(self):
+        """Timer callback that evaluates the battery level and triggers actions."""
+        if self.current_battery_level is None:
+            return # No data received yet
+            
+        level = self.current_battery_level
+
+        # Trigger if level is a multiple of 10, or if it is exactly 99
+        is_trigger_level = (level % 10 == 0) or (level == 99)
+        
+        if is_trigger_level and level != self.last_announced_level:
+            self.last_announced_level = level
+            
+            # 100 or 99 trigger the "fully charged" logic
+            if level >= 99:
+                sound_file = self.sound_full
+                spoken_text = self.sentence_full
+            elif level <= 50:
+                sound_file = self.sound_low
+                spoken_text = f"{self.sentence_low}. {self.sentence_level} {level}"
+            else:
+                sound_file = self.sound_medium
+                spoken_text = f"{self.sentence_level} {level}"
+                
+            self.get_logger().info(f"Battery at {level}%. Triggering alerts.")
+                    
+            # Execute Actions
+            if self.can_play_sound:
+                self.play_sound(sound_file)
+                
+            if self.can_speak:
+                self.speak(spoken_text)
+
+    def play_sound(self, filepath):
+        """Plays a WAV file using ALSA aplay."""
+        if os.path.exists(filepath):
+            # aplay is standard on Ubuntu/Linux. Use -q for quiet output.
+            subprocess.Popen(['aplay', '-q', filepath])
+        else:
+            self.get_logger().warn(f"Sound file not found: {filepath}")
+
+    def speak(self, text):
+        """Uses Festival TTS to speak the text with the configured voice."""
+        # Festival command to use a specific voice and say the text
+        festival_cmd = f'(voice_{self.voice_type}) (SayText "{text}")'
+        try:
+            process = subprocess.Popen(['festival', '--pipe'], 
+                                     stdin=subprocess.PIPE, 
+                                     text=True)
+            process.communicate(festival_cmd)
+        except Exception as e:
+            self.get_logger().error(f"Failed to execute Festival TTS: {e}")
+
+def main(args=None):
+    rclpy.init(args=args)
+    # Ensure config.ini is in the working directory or provide absolute path
+    node = BatteryMonitorNode(config_path='config.ini')
+    
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
