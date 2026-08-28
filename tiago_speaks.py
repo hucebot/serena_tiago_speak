@@ -43,7 +43,7 @@ class KyutaiRobotSpeaker(Node):
         self.phrases = {}
         self.load_phrases()
         self.last_action = None
-
+        self.action_hist = []
         # 5. Pub/Sub Setup
         self.subscription = self.create_subscription(
             String,
@@ -92,14 +92,20 @@ class KyutaiRobotSpeaker(Node):
     def action_callback(self, msg):
         """Callback triggered when a new action is published."""
         current_action = msg.data
+        self.action_hist.append(current_action)
 
         if current_action != self.last_action:
             self.last_action = current_action
-
-            if self.speak_flag == 1 and current_action in self.phrases:
-                phrase = self.phrases[current_action]
-                self.get_logger().info(f"Speaking: '{phrase}'")
-                self.speak(phrase)
+            try:
+                if self.speak_flag == 1 and current_action in self.phrases:
+                    if self.current_action not in self.action_hist:
+                        phrase = self.phrases[current_action]
+                    else:
+                         phrase = self.phrases.get(current_action+"2")
+                    self.get_logger().info(f"Speaking: '{phrase}'")
+                    self.speak(phrase)
+            except Exception as e:
+                self.get_logger().error(f"Error during action callback: {e}")
 
     def speak(self, phrase):
         """Generates audio stream with Kyutai and publishes raw bytes."""
