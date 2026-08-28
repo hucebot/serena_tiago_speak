@@ -29,4 +29,11 @@ RUN pip3 install --upgrade --no-cache-dir \
 # Source ROS automatically in interactive shells
 RUN echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc
 
+
+# Install audio_common_msgs
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ros-humble-audio-common-msgs \
+    && rm -rf /var/lib/apt/lists/*
+
+
 WORKDIR /workspace
