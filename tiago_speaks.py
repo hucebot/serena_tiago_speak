@@ -22,7 +22,7 @@ class KyutaiRobotSpeaker(Node):
         self.declare_parameter('speak_flag', 1)
         self.declare_parameter('action_topic', '/orchestrator/ui/current_task')
         self.declare_parameter('voice', 'alba')
-        self.declare_parameter('phrases_file', 'phrases.txt')
+        self.declare_parameter('phrases_file', 'assets/phrases.txt')
 
         self.speak_flag = self.get_parameter('speak_flag').value
         self.action_topic = self.get_parameter('action_topic').value
