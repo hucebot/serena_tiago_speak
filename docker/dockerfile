@@ -37,3 +37,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 
 WORKDIR /workspace
+
+# Laptop battery monitor (laptop_battery_monitor.py)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3-psutil \
+    && rm -rf /var/lib/apt/lists/*

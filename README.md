@@ -72,6 +72,40 @@ List installed voices inside the container: `festival -b '(print (voice.list))'`
 
 Phrases live in `assets/phrases.txt` (`action_name, spoken phrase`).
 
+## Launch the laptop battery monitor
+
+Publishes the host laptop battery as `sensor_msgs/msg/BatteryState` on `/laptop_battery` (via `python3-psutil`). Run on the machine whose battery you want to report—typically the host, not inside the robot container unless that container has access to laptop power data.
+
+Inside the container (image includes `python3-psutil`), from the repository root:
+
+```bash
+python3 laptop_battery_monitor.py
+```
+
+Optional flags:
+
+```bash
+python3 laptop_battery_monitor.py --topic_name laptop_battery --publish_interval 5.0
+```
+
+| Option               | Default           | Description                                      |
+|----------------------|-------------------|--------------------------------------------------|
+| `--topic_name`       | `laptop_battery`  | `BatteryState` topic name                        |
+| `--publish_interval` | `5.0`             | Publish interval in seconds                      |
+
+Verify:
+
+```bash
+ros2 topic echo /laptop_battery
+```
+
+To drive `battery_monitor.py` from the laptop battery, set in `config.ini`:
+
+```ini
+battery_source=power_status
+power_status_topic=/laptop_battery
+```
+
 ## Launch the battery monitoring node
 
 Inside the container, from the repository root (so sound paths in `config.ini` resolve):
@@ -89,7 +123,7 @@ Both topics are subscribed; only the active source updates the level. Switch wit
 | `battery_source` | Topic (default)           | Message type              |
 |------------------|---------------------------|---------------------------|
 | `battery_level`  | `/power/battery_level`    | `std_msgs/msg/Int32` (0–100 %) |
-| `power_status`   | `/power_status`           | `sensor_msgs/msg/BatteryState` (`percentage`) |
+| `power_status`   | `/power_status`           | `sensor_msgs/msg/BatteryState` (`percentage`; set `power_status_topic=/laptop_battery` for the laptop monitor) |
 
 ### Config (`config.ini`)
 
@@ -109,7 +143,7 @@ Both topics are subscribed; only the active source updates the level. Switch wit
 | `sound_medium`          | `assets/battery_level.wav`  | WAV for mid levels                               |
 | `sound_low`             | `assets/urgent_charge2.wav` | WAV for low battery                              |
 
-Example: set `battery_source=power_status` to use `/power_status` instead of the Int32 topic.
+Example: set `battery_source=power_status` and `power_status_topic=/laptop_battery` to use the laptop battery monitor instead of the robot `/power_status` topic.
 
 ## Test with a fake action
 
