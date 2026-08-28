@@ -98,7 +98,7 @@ class KyutaiRobotSpeaker(Node):
             self.last_action = current_action
             try:
                 if self.speak_flag == 1 and current_action in self.phrases:
-                    if self.current_action not in self.action_hist:
+                    if current_action not in self.action_hist:
                         phrase = self.phrases[current_action]
                     else:
                          phrase = self.phrases.get(current_action+"2")
