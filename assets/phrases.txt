@@ -1,11 +1,19 @@
-# phrases.txt
-open_fridge, Let me open this fridge.
-pick_milk, The milk bottle.
+open_fridge, I'm going to open the fridge.
+pick_milk, I'll start with the milk.
 place_milk, The milk goes in the fridge.
-pick_banana, The banana.
-place_banana, The banana should go in the fruit plate.
-pick_baguette, The French bread does not go in the fridge, I will put it in the bread basket.
-place_baguette, There.
-pick_apple, The apple. 
-place_apple, The apple goes in the bowl.
-close_fridge, Now I can close the fridge.
+pick_banana, Now the banana.
+place_banana, The banana goes in the fruit bowl.
+pick_baguette, Now the baguette.
+place_baguette, The baguette goes in the bread basket.
+pick_baguette2, The other baguette.
+place_baguette2, This goes with the other baguette.
+pick_apple, Now the apple.
+place_apple, I'll place the apple in the fruit bowl.
+pick_orange, Next is the orange.
+place_orange, The orange goes in the fruit bowl.
+close_fridge, I can close the fridge now.
+pick_ketchup, Now the ketchup.
+place_ketchup, The ketchup goes in the fridge.
+pick_milk2, Another milk.
+place_milk2, Also this milk goes in the fridge.
+finished, Everything is done on my side.
