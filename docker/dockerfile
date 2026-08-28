@@ -1,12 +1,10 @@
 FROM ros:humble-ros-base
 
-# ROS deps + Festival TTS (used by the tiago_speaks node)
+# ROS deps (Festival removed)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-pip \
     python3-tk \
     tk \
-    festival \
-    festvox-kallpc16k \
     alsa-utils \
     ros-humble-rmw-cyclonedds-cpp \
     ros-humble-tf2-ros \
@@ -19,14 +17,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-humble-rqt-common-plugins \
     && rm -rf /var/lib/apt/lists/*
 
-# Extra Festival voices (separate layer so the ROS/Festival cache stays valid)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    festvox-kdlpc16k \
-    festvox-rablpc16k \
-    festvox-don \
-    festvox-ellpc11k \
-    mbrola mbrola-en1 \
-    && rm -rf /var/lib/apt/lists/*
+# Install Kyutai Pocket TTS and dependencies
+RUN pip3 install --upgrade --no-cache-dir \
+    torch \
+    "numpy>=2.0.0" \
+    "scipy>=1.14.0" \
+    soundfile \
+    huggingface_hub \
+    pocket-tts
 
 # Source ROS automatically in interactive shells
 RUN echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc

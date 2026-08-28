@@ -3,42 +3,62 @@
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
-import subprocess
+from audio_common_msgs.msg import AudioData
+from rcl_interfaces.msg import SetParametersResult
+import numpy as np
+import torch
 import os
+from pocket_tts import TTSModel
 
-class RobotSpeaker(Node):
+class KyutaiRobotSpeaker(Node):
     def __init__(self):
-        super().__init__('robot_speaker')
+        super().__init__('kyutai_robot_speaker')
 
-        # 1. Declare parameters (with default values)
+        # 1. Load the Pocket TTS model
+        self.get_logger().info('Loading Kyutai Pocket TTS model...')
+        self.model = TTSModel.load_model(language="english")
+
+        # 2. Declare parameters
         self.declare_parameter('speak_flag', 1)
         self.declare_parameter('action_topic', '/orchestrator/ui/current_task')
-        self.declare_parameter('voice_type', 'kal_diphone') 
+        self.declare_parameter('voice', 'alba')
         self.declare_parameter('phrases_file', 'phrases.txt')
 
-        # 2. Retrieve parameters
         self.speak_flag = self.get_parameter('speak_flag').value
         self.action_topic = self.get_parameter('action_topic').value
-        self.voice_type = self.get_parameter('voice_type').value
         self.phrases_file = self.get_parameter('phrases_file').value
+        initial_voice = self.get_parameter('voice').value
 
-        # 3. Load phrases from the provided text file
+        # 3. Load initial voice
+        try:
+            self.voice_state = self.model.get_state_for_audio_prompt(initial_voice)
+            self.get_logger().info(f'Loaded default voice: {initial_voice}')
+        except Exception as e:
+            self.get_logger().error(f'Failed to load voice "{initial_voice}": {e}')
+            self.voice_state = self.model.get_state_for_audio_prompt("alba")
+
+        self.add_on_set_parameters_callback(self.on_parameter_change)
+
+        # 4. Load phrases
         self.phrases = {}
         self.load_phrases()
-
-        # 4. State variable to ensure we only speak once per action
         self.last_action = None
 
-        # 5. Set up the Subscriber
+        # 5. Pub/Sub Setup
         self.subscription = self.create_subscription(
             String,
             self.action_topic,
             self.action_callback,
             10
         )
-        
-        self.get_logger().info(f"Robot Speaker initialized.")
-        self.get_logger().info(f"Topic: {self.action_topic}, Voice: {self.voice_type}, Speak Flag: {self.speak_flag}")
+
+        self.audio_pub = self.create_publisher(
+            AudioData,
+            '/audio_out/raw',
+            10
+        )
+
+        self.get_logger().info('Kyutai Robot Speaker initialized and ready.')
 
     def load_phrases(self):
         """Reads the text file containing 'action,phrase' pairs."""
@@ -48,61 +68,60 @@ class RobotSpeaker(Node):
 
         with open(self.phrases_file, 'r') as f:
             for line in f:
-                # Ignore empty lines or comments
                 if not line.strip() or line.startswith('#'):
                     continue
-                
-                # We expect the format: action_name, The phrase the robot should say
                 parts = line.strip().split(',', 1)
                 if len(parts) == 2:
-                    action = parts[0].strip()
-                    phrase = parts[1].strip()
-                    self.phrases[action] = phrase
-                    
+                    self.phrases[parts[0].strip()] = parts[1].strip()
+
         self.get_logger().info(f"Successfully loaded {len(self.phrases)} phrases.")
 
+    def on_parameter_change(self, params):
+        for param in params:
+            if param.name == 'voice':
+                try:
+                    self.voice_state = self.model.get_state_for_audio_prompt(param.value)
+                    self.get_logger().info(f'Voice changed to: "{param.value}"')
+                except Exception as e:
+                    self.get_logger().error(f'Voice change failed: {e}')
+                    return SetParametersResult(successful=False, reason=str(e))
+            elif param.name == 'speak_flag':
+                self.speak_flag = param.value
+        return SetParametersResult(successful=True)
+
     def action_callback(self, msg):
-        """Callback triggered when a new action is published to the topic."""
+        """Callback triggered when a new action is published."""
         current_action = msg.data
 
-        # Ensure the phrase is only said once per action occurrence
         if current_action != self.last_action:
             self.last_action = current_action
 
-            # Check if speech is enabled and if we have a phrase for this action
             if self.speak_flag == 1 and current_action in self.phrases:
                 phrase = self.phrases[current_action]
                 self.get_logger().info(f"Speaking: '{phrase}'")
                 self.speak(phrase)
 
     def speak(self, phrase):
-        """Uses Festival TTS to speak the given phrase."""
-        # Escape double quotes to prevent breaking the command line string
-        safe_phrase = phrase.replace('"', '\\"')
-
-        # Construct the festival batch command
-        # Syntax: festival -b '(voice_kal_diphone)' '(SayText "Hello")'
-        cmd = [
-            'festival',
-            '-b',
-            f'(voice_{self.voice_type})',
-            f'(SayText "{safe_phrase}")'
-        ]
-
+        """Generates audio stream with Kyutai and publishes raw bytes."""
         try:
-            # Popen is used so the ROS 2 node doesn't block while the robot is speaking
-            subprocess.Popen(cmd)
-            print(f"Running Festival command: {cmd}")
-   
-        except FileNotFoundError:
-            self.get_logger().error("Festival TTS is not installed. Please install it using 'sudo apt install festival'")
+            for chunk_tensor in self.model.generate_audio_stream(self.voice_state, phrase):
+
+                # Convert float32 tensor chunk to 16-bit PCM numpy array
+                audio_np = chunk_tensor.numpy()
+                audio_int16 = (audio_np * 32767).astype(np.int16)
+
+                # Convert to raw bytes and publish
+                audio_msg = AudioData()
+                audio_msg.data = list(audio_int16.tobytes())
+                self.audio_pub.publish(audio_msg)
+
         except Exception as e:
-            self.get_logger().error(f"Failed to execute Festival TTS: {e}")
+            self.get_logger().error(f'Failed to stream TTS: {str(e)}')
 
 def main(args=None):
     rclpy.init(args=args)
-    node = RobotSpeaker()
-    
+    node = KyutaiRobotSpeaker()
+
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
