@@ -60,11 +60,10 @@ class KyutaiRobotSpeaker(Node):
         )
 
         self.subscription = self.create_subscription(
-            Bool,
-            '/inference/error',
+            String,
+            '/serena_tts/text',
             self.error_callback,
             qos_state,
-
         )
 
         self.audio_pub = self.create_publisher(
@@ -79,8 +78,7 @@ class KyutaiRobotSpeaker(Node):
     def error_callback(self, msg):
         """Callback for error messages."""
         if msg.data:
-            self.get_logger().error('Inference error detected!')
-            self.speak("Oops, let's try again.")
+            self.speak(msg.data)
 
     def load_phrases(self):
         """Reads the text file containing 'action,phrase' pairs."""
