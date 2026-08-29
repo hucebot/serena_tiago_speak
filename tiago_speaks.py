@@ -2,9 +2,10 @@
 
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import String
+from std_msgs.msg import String, Bool
 from audio_common_msgs.msg import AudioData
 from rcl_interfaces.msg import SetParametersResult
+from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy, qos_profile_sensor_data
 import numpy as np
 import torch
 import os
@@ -52,6 +53,20 @@ class KyutaiRobotSpeaker(Node):
             10
         )
 
+        qos_state = QoSProfile(
+            reliability=QoSReliabilityPolicy.RELIABLE,
+            history=QoSHistoryPolicy.KEEP_LAST,
+            depth=1
+        )
+
+        self.subscription = self.create_subscription(
+            Bool,
+            '/inference/error',
+            self.error_callback,
+            qos_state,
+
+        )
+
         self.audio_pub = self.create_publisher(
             AudioData,
             '/audio_out/raw',
@@ -59,6 +74,13 @@ class KyutaiRobotSpeaker(Node):
         )
 
         self.get_logger().info('Kyutai Robot Speaker initialized and ready.')
+
+
+    def error_callback(self, msg):
+        """Callback for error messages."""
+        if msg.data:
+            self.get_logger().error('Inference error detected!')
+            self.speak("Oops, let's try again.")
 
     def load_phrases(self):
         """Reads the text file containing 'action,phrase' pairs."""
