@@ -1,19 +1,21 @@
-open_fridge, I'm going to open the fridge.
-pick_milk, I'll start with the milk.
+open_fridge, Thank you for this mission, I'm going to open the fridge.
+pick_milk, Let's go to the table, to check what should go inside the fridge.
 place_milk, The milk goes in the fridge.
-pick_banana, Where is the banana?
-place_banana, This goes in the fruit plate.
+pick_solevita, Orange juice is next.
+place_solevita, This goes in the fridge.
+pick_orange, Next is the orange.
+place_orange, The orange goes in the fruit bowl.
+close_fridge, I can close the fridge now.
 pick_baguette, Now the baguette.
 place_baguette, The baguette doesn't go in the fridge, it goes in the bread basket.
 pick_baguette2, There was another baguette.
 place_baguette2, I already know where this goes.
+finished, Everything is done on my side.
+pick_banana, Where is the banana?
+place_banana, This goes in the fruit plate.
 pick_apple, Now the apple.
 place_apple, I'll place the apple in the fruit bowl.
-pick_orange, Next is the orange.
-place_orange, The orange goes in the fruit bowl.
-close_fridge, I can close the fridge now.
 pick_ketchup, Now the ketchup.
 place_ketchup, This needs to stay fresh.
 pick_milk2, Another milk.
 place_milk2, I already know where this goes.
-finished, Everything is done on my side.
